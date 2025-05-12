@@ -1,0 +1,90 @@
+nextflow_process {
+    name "Test Process CLAHE"
+    script "../main.nf"
+    process "CLAHE"
+}
+
+test("Should run without failures") {
+
+    when {
+        process {
+            """
+            input[0] = [
+                [ id:'test1' ],
+                file("test-data/test_image.tiff")
+            ]
+            """
+        }
+    }
+
+    then {
+        assert process.success
+        assert snapshot(process.out).match()
+        assert path(process.out.img_clahe.get(0).get(1)).exists()
+        assert path(process.out.versions.get(0)).exists()
+
+        with(process.out.img_clahe.get(0)) {
+            assert get(0).id == "test1"
+            assert get(1).getName().endsWith(".tiff")
+        }
+    }
+}
+
+test("Should handle custom prefix") {
+
+    when {
+        process {
+            """
+            input[0] = [
+                [ id:'test2' ],
+                file("test-data/test_image.tiff")
+            ]
+            ext.prefix = 'custom_prefix'
+            """
+        }
+    }
+
+    then {
+        assert process.success
+        assert path(process.out.img_clahe.get(0).get(1)).getName() == "custom_prefix.tiff"
+    }
+}
+
+test("Should handle custom arguments") {
+
+    when {
+        process {
+            """
+            input[0] = [
+                [ id:'test3' ],
+                file("test-data/test_image.tiff")
+            ]
+            ext.args = '--clip_limit 2.0'
+            """
+        }
+    }
+
+    then {
+        assert process.success
+        assert snapshot(process.out).match()
+    }
+}
+
+test("Should fail when input file is missing") {
+
+    when {
+        process {
+            """
+            input[0] = [
+                [ id:'test4' ],
+                file("test-data/nonexistent.tiff")
+            ]
+            """
+        }
+    }
+
+    then {
+        assert !process.success
+        assert process.exitStatus != 0
+    }
+}
